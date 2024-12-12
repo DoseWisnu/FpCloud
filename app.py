@@ -11,22 +11,30 @@ app = Flask(__name__)
 app.secret_key = 'your_secret_key_here'  # Ganti dengan kunci rahasia yang kuat
 
 # Konfigurasi MySQL
-db_config = {
-    user="ccweb",
-    password="Dwp25032003", 
-    host="webfpccawan.mysql.database.azure.com", 
-    port=3306, 
-    database="db_merek"
-}
+connection = mysql.connector.connect(
+    host='fpmobilcc.mysql.database.azure.com',
+    user='ccweb',
+    password='Dwp25032003',
+    database='db_merek',
+    port='3306'
+)
+
+def get_db_connection():
+    try:
+        connection = mysql.connector.connect(
+            host=('webfpccawan.mysql.database.azure.com'),
+            user=('ccweb'),
+            password=('Dwp25032003'),
+            database=('db_merek'),
+            port='3306'
+        )
+        return connection
+    except Error as e:
+        print(f"Error: {e}")
+        return None
 
 socketio = SocketIO(app)
 
-# Helper untuk koneksi database
-def get_db_connection():
-    conn = mysql.connector.connect(**db_config)
-    return conn
-
-# Halaman utama
 @app.route('/')
 def index():
     if 'user_id' in session:  # Cek apakah pengguna sudah login
