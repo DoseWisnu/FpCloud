@@ -7,10 +7,6 @@ import mysql.connector
 from flask import session, redirect, url_for
 import os
 
-app = Flask(__name__)
-app.secret_key = 'your_secret_key_here'  # Ganti dengan kunci rahasia yang kuat
-
-# Konfigurasi MySQL
 connection = mysql.connector.connect(
     host='fpmobilcc.mysql.database.azure.com',
     user='ccweb',
@@ -33,8 +29,18 @@ def get_db_connection():
         print(f"Error: {e}")
         return None
 
+    
+
+app = Flask(__name__)
+app.secret_key = 'your_secret_key_here'  # Ganti dengan kunci rahasia yang kuat
+
+
 socketio = SocketIO(app)
 
+# Helper untuk koneksi database
+
+
+# Halaman utama
 @app.route('/')
 def index():
     if 'user_id' in session:  # Cek apakah pengguna sudah login
@@ -427,6 +433,41 @@ def detail_mobil(id):
     else:
         flash('Mobil tidak ditemukan!', 'error')
         return redirect('/mobil')
+
+@app.route('/forum', methods=['GET'])
+def forum():
+    if 'user_id' not in session:
+        return redirect('/login')  # Arahkan ke login jika belum login
+
+    user_id = session['user_id']
+    role = session.get('role')  # Ambil role dari sesi
+
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute("SELECT username FROM akun WHERE id=%s", (user_id,))
+    user = cursor.fetchone()
+
+    cursor.execute("SELECT m.message, u.username, m.timestamp FROM messages m JOIN akun u ON m.user_id=u.id ORDER BY m.timestamp")
+    messages = cursor.fetchall()
+    cursor.close()
+
+    return render_template('forum.html', user=user, role=role, messages=messages)
+
+# SocketIO event untuk menerima pesan
+@socketio.on('send_message')
+def handle_send_message(data):
+    message = data['message']
+    user_id = session['user_id']
+    
+    # Simpan pesan ke database
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO messages (user_id, message) VALUES (%s, %s)", (user_id, message))
+    conn.commit()
+    cursor.close()
+    
+    # Emit pesan ke semua klien
+    emit('receive_message', {'message': message, 'username': session['username']}, broadcast=True)
 
 if __name__ == '__main__':
     app.run(debug=True)
